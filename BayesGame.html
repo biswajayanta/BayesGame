@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Bayes Detective</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+--bg:#0f0e17; --surface:#1a1a2e; --card:#16213e;
+--accent:#f7b731; --green:#26de81; --red:#fc5c65;
+--blue:#45aaf2; --purple:#a55eea; --text:#fffffe; --muted:#a7a9be;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:
+radial-gradient(1px 1px at 20% 30%,rgba(255,255,255,.3) 0%,transparent 100%),
+radial-gradient(1px 1px at 80% 10%,rgba(255,255,255,.2) 0%,transparent 100%),
+radial-gradient(2px 2px at 50% 80%,rgba(247,183,49,.2) 0%,transparent 100%),
+radial-gradient(1px 1px at 10% 60%,rgba(255,255,255,.15) 0%,transparent 100%),
+radial-gradient(1px 1px at 90% 70%,rgba(255,255,255,.2) 0%,transparent 100%);
+pointer-events:none;z-index:0;}
+.wrap{max-width:900px;margin:0 auto;padding:20px;position:relative;z-index:1;}
+header{text-align:center;padding:30px 0 10px;}
+.gtitle{font-family:'Fredoka One',cursive;font-size:2.8rem;color:var(--accent);text-shadow:0 0 30px rgba(247,183,49,.5);letter-spacing:1px;}
+.gsub{color:var(--muted);font-size:1rem;margin-top:6px;font-weight:600;}
+/* progress */
+.prog-wrap{display:flex;align-items:center;gap:10px;margin:24px 0 20px;}
+.prog-bar{flex:1;height:8px;background:var(--surface);border-radius:99px;overflow:hidden;}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--purple));border-radius:99px;transition:width .5s ease;}
+.prog-lbl{font-size:.8rem;color:var(--muted);font-weight:700;white-space:nowrap;}
+/* cards */
+.card{background:var(--card);border:1px solid rgba(255,255,255,.07);border-radius:20px;padding:28px 32px;margin-bottom:20px;box-shadow:0 20px 60px rgba(0,0,0,.4);animation:slideIn .4s ease;}
+@keyframes slideIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.card-title{font-family:'Fredoka One',cursive;font-size:1.5rem;color:var(--accent);margin-bottom:10px;}
+.card-icon{font-size:2.4rem;margin-bottom:12px;display:block;}
+.card-body{color:#d4d5e0;line-height:1.7;font-size:1rem;font-weight:600;}
+.hbox{background:rgba(247,183,49,.1);border-left:4px solid var(--accent);border-radius:0 10px 10px 0;padding:12px 16px;margin:14px 0;font-weight:700;color:var(--accent);}
+/* config */
+.cfg-title{font-family:'Fredoka One',cursive;font-size:1.2rem;color:var(--accent);margin-bottom:18px;}
+.ctx-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:4px;}
+.ctx-card{background:var(--surface);border:2px solid rgba(255,255,255,.1);border-radius:16px;padding:20px;cursor:pointer;transition:all .2s;text-align:center;}
+.ctx-card:hover{border-color:var(--accent);transform:translateY(-2px);}
+.ctx-card.sel{border-color:var(--accent);background:rgba(247,183,49,.1);box-shadow:0 0 0 3px rgba(247,183,49,.2);}
+.ctx-em{font-size:2.4rem;display:block;margin-bottom:8px;}
+.ctx-name{font-family:'Fredoka One',cursive;font-size:1.1rem;}
+.ctx-desc{font-size:.8rem;color:var(--muted);font-weight:600;margin-top:4px;}
+/* sliders */
+.sl-group{margin-bottom:22px;}
+.sl-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+.sl-lbl{font-weight:800;font-size:.95rem;}
+.sl-desc{font-size:.78rem;color:var(--muted);font-weight:600;margin-top:3px;}
+.sl-val{font-family:'Fredoka One',cursive;font-size:1.2rem;color:var(--accent);min-width:130px;text-align:right;}
+.sl-row{display:flex;align-items:center;gap:12px;}
+.sl-row input[type=range]{flex:1;height:6px;border-radius:99px;background:var(--surface);outline:none;appearance:none;cursor:pointer;}
+.sl-row input[type=range]::-webkit-slider-thumb{appearance:none;width:20px;height:20px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px rgba(247,183,49,.5);cursor:pointer;transition:transform .1s;}
+.sl-row input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2);}
+.num-inp{width:90px;background:var(--surface);border:2px solid rgba(255,255,255,.12);border-radius:10px;color:var(--accent);padding:7px 10px;font-family:'Fredoka One',cursive;font-size:.95rem;outline:none;text-align:center;transition:border-color .2s;flex-shrink:0;}
+.num-inp:focus{border-color:var(--accent);}
+.num-inp.error{border-color:var(--red);color:var(--red);}
+.num-suffix{font-size:.75rem;color:var(--muted);font-weight:700;white-space:nowrap;}
+/* preview */
+.prev-card{background:rgba(247,183,49,.07);border:1px solid rgba(247,183,49,.2);border-radius:14px;padding:16px 20px;margin-top:20px;}
+.prev-title{font-weight:800;font-size:.8rem;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;}
+.prev-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.prev-stat{text-align:center;}
+.prev-num{font-family:'Fredoka One',cursive;font-size:1.4rem;display:block;}
+.prev-lbl{font-size:.72rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+/* students */
+.stu-sec{margin-bottom:24px;}
+.stu-title{font-family:'Fredoka One',cursive;font-size:1.1rem;color:var(--blue);margin-bottom:14px;}
+.stu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;}
+.stu-card{background:var(--surface);border:2px solid transparent;border-radius:14px;padding:14px 10px;text-align:center;transition:all .2s;}
+.stu-av{font-size:2rem;display:block;margin-bottom:6px;}
+.stu-name{font-weight:800;font-size:.85rem;}
+.stu-ans{font-size:.75rem;margin-top:4px;font-weight:700;min-height:18px;color:var(--muted);}
+.stu-card.done{border-color:var(--green);background:rgba(38,222,129,.08);}
+.stu-card.done .stu-ans{color:var(--green);}
+/* answers */
+.ans-sec{background:var(--surface);border-radius:16px;padding:22px 24px;margin-bottom:20px;border:1px solid rgba(255,255,255,.06);}
+.ans-question{font-family:'Fredoka One',cursive;font-size:1.15rem;color:var(--text);margin-bottom:6px;}
+.ans-instruction{font-size:.82rem;color:var(--muted);font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:6px;}
+.ans-instruction span{background:var(--card);border-radius:6px;padding:2px 8px;font-size:.75rem;letter-spacing:.5px;text-transform:uppercase;}
+.opts{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;}
+.opt{background:var(--card);border:2px solid rgba(255,255,255,.08);color:var(--text);padding:13px 18px;border-radius:14px;font-family:'Nunito',sans-serif;font-size:.95rem;font-weight:700;cursor:pointer;transition:all .2s;text-align:left;display:flex;align-items:center;gap:12px;}
+.opt:hover{border-color:var(--accent);background:rgba(247,183,49,.07);transform:translateX(4px);}
+.opt.sel{background:rgba(247,183,49,.15);border-color:var(--accent);color:var(--accent);}
+.opt-badge{background:var(--surface);border-radius:8px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800;flex-shrink:0;transition:all .2s;}
+.opt.sel .opt-badge{background:var(--accent);color:#0f0e17;}
+.open-wrap{display:flex;flex-direction:column;gap:12px;margin-bottom:4px;}
+.open-lbl{font-size:.82rem;color:var(--muted);font-weight:700;}
+.open-inp{width:100%;background:var(--card);border:2px solid rgba(255,255,255,.1);border-radius:12px;color:var(--text);padding:12px 16px;font-family:'Nunito',sans-serif;font-size:1rem;font-weight:600;outline:none;transition:border-color .2s;}
+.open-inp:focus{border-color:var(--accent);}
+.sub-hint{font-size:.78rem;color:var(--muted);font-weight:600;margin-top:8px;}
+/* buttons */
+.btn-row{display:flex;gap:12px;flex-wrap:wrap;}
+.btn{padding:12px 28px;border-radius:50px;font-family:'Fredoka One',cursive;font-size:1rem;border:none;cursor:pointer;transition:all .2s;letter-spacing:.5px;}
+.btn-p{background:linear-gradient(135deg,var(--accent),#f9a825);color:#0f0e17;box-shadow:0 4px 20px rgba(247,183,49,.35);}
+.btn-p:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(247,183,49,.5);}
+.btn-s{background:var(--surface);color:var(--text);border:2px solid rgba(255,255,255,.1);}
+.btn-s:hover{border-color:var(--accent);color:var(--accent);}
+/* reactions */
+.reactions{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0;}
+.rbub{background:var(--surface);border-radius:50px;padding:6px 14px;font-size:.85rem;font-weight:700;color:var(--muted);border:1px solid rgba(255,255,255,.07);animation:popIn .3s ease;}
+@keyframes popIn{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+.ok{color:var(--green);}.bad{color:var(--red);}
+/* reveal */
+.rev-card{background:linear-gradient(135deg,rgba(165,94,234,.15),rgba(69,170,242,.1));border:1px solid rgba(165,94,234,.3);border-radius:20px;padding:30px;text-align:center;animation:slideIn .5s ease;}
+.rev-title{font-family:'Fredoka One',cursive;font-size:2rem;color:var(--purple);margin-bottom:8px;}
+.rev-num{font-family:'Fredoka One',cursive;font-size:4rem;color:var(--accent);text-shadow:0 0 30px rgba(247,183,49,.6);margin:10px 0;}
+.rev-exp{color:#d4d5e0;line-height:1.8;font-size:1rem;font-weight:600;max-width:620px;margin:0 auto;text-align:left;}
+.mtable{width:100%;border-collapse:collapse;margin:16px 0;border-radius:12px;overflow:hidden;}
+.mtable th{background:rgba(247,183,49,.2);color:var(--accent);padding:10px 14px;text-align:left;font-size:.85rem;font-weight:800;}
+.mtable td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);font-size:.9rem;font-weight:600;}
+.mtable tr:last-child td{border-bottom:none;}
+.mtable tr:nth-child(even) td{background:rgba(255,255,255,.02);}
+.lesson{background:rgba(38,222,129,.1);border:1px solid rgba(38,222,129,.3);border-radius:14px;padding:16px 20px;margin-top:20px;color:var(--green);font-weight:700;font-size:1rem;line-height:1.6;}
+.formula{background:var(--surface);border-radius:12px;padding:16px;margin:14px 0;font-family:monospace;font-size:.9rem;color:var(--blue);line-height:2;white-space:pre-wrap;}
+.sum-row{display:flex;justify-content:center;gap:20px;flex-wrap:wrap;margin:20px 0;}
+.sum-stat{text-align:center;}
+.sum-num{font-family:'Fredoka One',cursive;font-size:2.2rem;display:block;}
+.sum-lbl{font-size:.8rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:1px;}
+.hidden{display:none;}
+@media(max-width:600px){
+.gtitle{font-size:2rem;}.ctx-grid{grid-template-columns:1fr;}
+.stu-grid{grid-template-columns:repeat(3,1fr);}.rev-num{font-size:3rem;}
+.prev-grid{grid-template-columns:repeat(2,1fr);}.card{padding:20px;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<div class="gtitle" id="mainTitle">🔍 The Bayes Detective</div>
+<div class="gsub">Can you outsmart the AI? A Bayes' Theorem Adventure</div>
+</header>
+<div class="prog-wrap hidden" id="progWrap">
+<div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+<div class="prog-lbl" id="progLbl">Step 1 / 5</div>
+</div>
+<div id="app"></div>
+</div>
+<script>
+// ── STATE ──
+var cfg = { context: 'school', sampleSize: 100000, accuracy: 99, baseRate: 1 };
+var state = { step: 0, answers: {}, selectedOpt: null, steps: [] };
+var TOTAL = 5;
+// ── CONTEXTS ──
+var CTX = {
+school: {
+emoji:'🏫', name:'School Cheating',
+plural:'students', singular:'student',
+affected:'cheaters', clean:'honest students',
+detector:'Cheat Detector 3000', detectorIco:'🤖',
+flagVerb:'wrongly accused', setting:'your school',
+friendScene:'Your friend gets called to the principal\'s office — the machine flagged them.',
+friendQ:'What\'s the REAL chance your friend actually cheated?',
+icons:['🏫','🤖','😰','😇','🚨'],
+personas:[
+{name:'Aanya',av:'👧',bias:'intuitive'},
+{name:'Rohan',av:'👦',bias:'overthink'},
+{name:'Mei', av:'🧒',bias:'intuitive'},
+{name:'Jake', av:'👦',bias:'careful'},
+{name:'Priya',av:'👧',bias:'careful'},
+{name:'Leo', av:'🧒',bias:'overthink'}
+]
+},
+disease: {
+emoji:'🏥', name:'Disease Detection',
+plural:'people', singular:'person',
+affected:'sick people', clean:'healthy people',
+detector:'MedScan AI 3000', detectorIco:'🩺',
+flagVerb:'wrongly flagged as sick', setting:'the population',
+friendScene:'Your friend just got their results — the AI flagged them as sick.',
+friendQ:'What\'s the REAL chance your friend actually has the disease?',
+icons:['🌍','🩺','😷','😇','🚨'],
+personas:[
+{name:'Dr. Sam',av:'👩‍⚕️',bias:'careful'},
+{name:'Mia', av:'👧', bias:'intuitive'},
+{name:'Carlos', av:'👦', bias:'overthink'},
+{name:'Yuki', av:'🧒', bias:'careful'},
+{name:'Finn', av:'👦', bias:'intuitive'},
+{name:'Zara', av:'👧', bias:'overthink'}
+]
+}
+};
+// ── HELPERS ──
+function fmt(n){ return Math.round(n).toLocaleString(); }
+function pct(n){ return n.toFixed(1)+'%'; }
+function el(id){ return document.getElementById(id); }
+function app(){ return el('app'); }
+function calc(){
+var N = cfg.sampleSize;
+var acc = cfg.accuracy / 100;
+var br = cfg.baseRate / 1000;
+var sick = Math.round(N * br);
+var healthy = N - sick;
+var tp = Math.round(sick * acc);
+var fn = sick - tp;
+var fp = Math.round(healthy * (1 - acc));
+var tn = healthy - fp;
+var tot = tp + fp;
+var real = tot > 0 ? tp / tot * 100 : 0;
+var pS = br;
+var pPS = acc;
+var pPH = 1 - acc;
+var pP = pPS * pS + pPH * (1 - pS);
+var bay = pP > 0 ? pPS * pS / pP * 100 : 0;
+return {N,sick,healthy,tp,fn,fp,tn,tot,real,pS,pPS,pPH,pP,bay};
+}
+function shuffle(arr){
+var a = arr.slice();
+for(var i = a.length-1; i > 0; i--){
+var j = Math.floor(Math.random()*(i+1));
+var t = a[i]; a[i]=a[j]; a[j]=t;
+}
+return a;
+}
+function makeMCQ(correct, others){
+var all = shuffle([correct].concat(others.slice(0,3)));
+return { options: all, correctIdx: all.indexOf(correct) };
+}
+// ── BUILD STEPS ──
+function buildSteps(){
+var ctx = CTX[cfg.context];
+var n = calc();
+var acc = cfg.accuracy;
+var err = 100 - acc;
+var s0 = makeMCQ(
+fmt(n.sick)+' '+ctx.plural,
+[fmt(Math.round(n.N*0.1))+' '+ctx.plural, fmt(Math.round(n.N*0.01))+' '+ctx.plural, fmt(Math.round(n.N*0.5))+' '+ctx.plural]
+);
+var s2 = makeMCQ(
+fmt(n.tp)+' '+ctx.plural,
+[fmt(n.sick)+' '+ctx.plural, fmt(Math.round(n.tp*0.5))+' '+ctx.plural, fmt(Math.round(n.tp*1.5+1))+' '+ctx.plural]
+);
+var s3 = makeMCQ(
+fmt(n.fp)+' '+ctx.plural,
+[fmt(Math.round(n.fp*2))+' '+ctx.plural, '0 '+ctx.plural, fmt(Math.round(n.N*(1-acc/100)))+' '+ctx.plural]
+);
+return [
+{
+icon: ctx.icons[0], title: 'The Setup',
+story: 'In '+ctx.setting+', there are <strong>'+fmt(n.N)+' '+ctx.plural+'</strong> total. After careful investigation, only <strong>'+fmt(n.sick)+' '+ctx.plural+'</strong> are actually '+ctx.affected+'. That\'s just <strong>'+cfg.baseRate+' in every 1,000</strong> — quite rare!',
+highlight: fmt(n.N)+' '+ctx.plural+' total. Only '+fmt(n.sick)+' are actually '+ctx.affected+'.',
+question: 'How many '+ctx.plural+' are actually '+ctx.affected+'?',
+type:'mcq', options:s0.options, correct:s0.correctIdx
+},
+{
+icon: ctx.icons[1], title: 'The '+ctx.detector+' Arrives!',
+story: 'A fancy '+ctx.detectorIco+' <strong>'+ctx.detector+'</strong> is deployed. The manufacturer claims it\'s <strong>'+acc+'% accurate</strong> — for every 100 '+ctx.plural+' scanned, it gets '+acc+' right and makes only '+err+' mistake'+(err!==1?'s':'')+' .',
+highlight: acc+'% accurate. Impressive… but is accuracy the whole story?',
+question: 'What does '+acc+'% accuracy really mean?',
+type:'mcq',
+options:['Gets '+acc+' out of every 100 right','Almost perfect — trust it fully','Only makes '+err+' mistakes total','Accuracy = confidence per prediction'],
+correct:0
+},
+{
+icon: ctx.icons[2], title: 'Scanning the '+ctx.affected,
+story: 'The machine scans all <strong>'+fmt(n.sick)+' actual '+ctx.affected+'</strong>. Since it\'s '+acc+'% accurate, it correctly catches <strong>'+fmt(n.tp)+'</strong> ✅. But <strong>'+fmt(n.fn)+'</strong> slip through undetected ❌.',
+highlight: '✅ '+fmt(n.tp)+' correctly flagged. ❌ '+fmt(n.fn)+' missed.',
+question: 'How many actual '+ctx.affected+' get correctly flagged?',
+type:'mcq', options:s2.options, correct:s2.correctIdx
+},
+{
+icon: ctx.icons[3], title: 'But What About the '+ctx.clean+'?',
+story: 'Now the machine scans <strong>'+fmt(n.healthy)+' '+ctx.clean+'</strong>. It correctly clears <strong>'+fmt(n.tn)+'</strong> ✅. But it also wrongly flags <strong>'+err+'%</strong> of this group — that\'s <strong>'+fmt(n.fp)+' '+ctx.clean+' '+ctx.flagVerb+'!</strong>',
+highlight: '❌ '+fmt(n.fp)+' '+ctx.clean+' '+ctx.flagVerb+'!',
+question: 'How many '+ctx.clean+' are wrongly flagged?',
+type:'mcq', options:s3.options, correct:s3.correctIdx
+},
+{
+icon: ctx.icons[4], title: 'The Big Question! 🚨',
+story: 'The machine flagged a total of <strong>'+fmt(n.tot)+' '+ctx.plural+'</strong> ('+fmt(n.tp)+' actual '+ctx.affected+' + '+fmt(n.fp)+' '+ctx.clean+'). '+ctx.friendScene+' The machine is '+acc+'% accurate…',
+highlight: ctx.friendQ,
+question: ctx.friendQ,
+type:'open',
+placeholder: 'Type your answer… (e.g. "'+acc+'%" or "'+fmt(n.tp)+' out of '+fmt(n.tot)+'")'
+}
+];
+}
+// ── PERSONA ANSWERS ──
+function personaAnswers(stepIdx){
+var n = calc();
+var acc = cfg.accuracy;
+var err = 100 - acc;
+var ctx = CTX[cfg.context];
+var maps = [
+{intuitive:'Umm… '+fmt(n.sick)+'? Seems low!', careful:fmt(n.sick)+' — that\'s '+cfg.baseRate+' per 1,000.', overthink:'Around '+fmt(n.sick)+'? Not sure…'},
+{intuitive:acc+'% sounds almost perfect!', careful:'Gets '+acc+' right per 100 scanned.', overthink:'But what about the '+err+'% error?'},
+{intuitive:'Should be ~'+fmt(n.tp)+', right?', careful:fmt(n.tp)+' of '+fmt(n.sick)+' correctly caught.', overthink:fmt(n.tp)+' caught, but '+fmt(n.fn)+' slipped through!'},
+{intuitive:'Just '+fmt(n.fp)+'? Not bad!', careful:fmt(n.fp)+' wrongly flagged — that\'s significant...', overthink:'Wait — '+fmt(n.fp)+' wrong vs only '+fmt(n.tp)+' right?!'},
+{intuitive:acc+'%! The machine said so!', careful:fmt(n.tp)+' of '+fmt(n.tot)+' → ~'+pct(n.real)+'?', overthink:'It can\'t be '+acc+'%... maybe '+pct(n.real)+'?'}
+];
+return maps[stepIdx];
+}
+// ══════════════════════════════════
+// ── RENDER: CONFIG ──
+// ══════════════════════════════════
+function renderConfig(){
+el('progWrap').classList.add('hidden');
+el('mainTitle').textContent = '🔍 The Bayes Detective';
+var div = document.createElement('div');
+// --- Scenario picker ---
+var scenCard = document.createElement('div');
+scenCard.className = 'card';
+var t1 = document.createElement('div');
+t1.className = 'cfg-title';
+t1.textContent = '🎭 Choose Your Scenario';
+scenCard.appendChild(t1);
+var grid = document.createElement('div');
+grid.className = 'ctx-grid';
+['school','disease'].forEach(function(key){
+var c = CTX[key];
+var card = document.createElement('div');
+card.className = 'ctx-card' + (cfg.context===key ? ' sel' : '');
+card.innerHTML = '<span class="ctx-em">'+c.emoji+'</span><div class="ctx-name">'+c.name+'</div><div class="ctx-desc">'+(key==='school'?'Cheat detector scans students':'AI medical test scans patients')+'</div>';
+card.onclick = function(){ cfg.context = key; renderConfig(); };
+grid.appendChild(card);
+});
+scenCard.appendChild(grid);
+div.appendChild(scenCard);
+// --- Sliders ---
+var slCard = document.createElement('div');
+slCard.className = 'card';
+var t2 = document.createElement('div');
+t2.className = 'cfg-title';
+t2.textContent = '⚙️ Customize the Numbers';
+slCard.appendChild(t2);
+function makeSlider(label, desc, id, min, max, step, val, suffix, onchange){
+var g = document.createElement('div');
+g.className = 'sl-group';
+// Header: label + description
+var hdr = document.createElement('div');
+hdr.className = 'sl-hdr';
+var left = document.createElement('div');
+var lbl = document.createElement('div'); lbl.className='sl-lbl'; lbl.textContent=label;
+var dsc = document.createElement('div'); dsc.className='sl-desc'; dsc.textContent=desc;
+left.appendChild(lbl); left.appendChild(dsc);
+hdr.appendChild(left);
+g.appendChild(hdr);
+// Slider + number input row
+var row = document.createElement('div');
+row.className = 'sl-row';
+var slider = document.createElement('input');
+slider.type='range'; slider.min=min; slider.max=max; slider.step=step; slider.value=val;
+slider.id = id+'-range';
+var numBox = document.createElement('input');
+numBox.type='number'; numBox.className='num-inp';
+numBox.min=min; numBox.max=max; numBox.step=step; numBox.value=val;
+numBox.id = id+'-num';
+// Sync slider -> numbox
+slider.oninput = function(){
+var v = +this.value;
+numBox.value = v;
+numBox.classList.remove('error');
+onchange(v);
+updatePreview();
+};
+// Sync numbox -> slider
+numBox.oninput = function(){
+var v = +this.value;
+if(v >= min && v <= max){
+numBox.classList.remove('error');
+slider.value = v;
+onchange(v);
+updatePreview();
+} else {
+numBox.classList.add('error');
+}
+};
+// On blur, clamp to valid range
+numBox.onblur = function(){
+var v = Math.min(max, Math.max(min, +this.value || min));
+this.value = v;
+this.classList.remove('error');
+slider.value = v;
+onchange(v);
+updatePreview();
+};
+row.appendChild(slider);
+row.appendChild(numBox);
+if(suffix){
+var sfx = document.createElement('span');
+sfx.className='num-suffix'; sfx.textContent=suffix;
+row.appendChild(sfx);
+}
+g.appendChild(row);
+return g;
+}
+slCard.appendChild(makeSlider('👥 Sample Size','Total people/students scanned','sl-sample',1000,1000000,1000,cfg.sampleSize,null,
+function(v){ cfg.sampleSize = v; }
+));
+slCard.appendChild(makeSlider('🎯 AI Accuracy','How often the detector gets it right','sl-acc',50,99,1,cfg.accuracy,'%',
+function(v){ cfg.accuracy = v; }
+));
+slCard.appendChild(makeSlider('🦠 Base Rate','How many per 1,000 are actually affected','sl-base',1,200,1,cfg.baseRate,'in 1,000',
+function(v){ cfg.baseRate = v; }
+));
+// preview
+var prev = document.createElement('div');
+prev.className = 'prev-card';
+var prevTitle = document.createElement('div');
+prevTitle.className = 'prev-title';
+prevTitle.textContent = '📊 Live Preview — what the math shows';
+prev.appendChild(prevTitle);
+var pg = document.createElement('div');
+pg.className = 'prev-grid';
+pg.id = 'prevGrid';
+prev.appendChild(pg);
+slCard.appendChild(prev);
+div.appendChild(slCard);
+// start button
+var btnRow = document.createElement('div');
+btnRow.className = 'btn-row';
+btnRow.style.justifyContent = 'center';
+btnRow.style.marginTop = '8px';
+var startBtn = document.createElement('button');
+startBtn.className = 'btn btn-p';
+startBtn.style.fontSize = '1.1rem';
+startBtn.style.padding = '14px 40px';
+startBtn.textContent = '🚀 Start the Game!';
+startBtn.onclick = startGame;
+btnRow.appendChild(startBtn);
+div.appendChild(btnRow);
+app().innerHTML = '';
+app().appendChild(div);
+updatePreview();
+}
+function updatePreview(){
+var pg = el('prevGrid');
+if(!pg) return;
+var n = calc();
+var ctx = CTX[cfg.context];
+pg.innerHTML =
+'<div class="prev-stat"><span class="prev-num" style="color:var(--red)">'+fmt(n.sick)+'</span><span class="prev-lbl">Actually '+ctx.affected+'</span></div>'+
+'<div class="prev-stat"><span class="prev-num" style="color:var(--red)">'+fmt(n.fp)+'</span><span class="prev-lbl">Wrongly flagged</span></div>'+
+'<div class="prev-stat"><span class="prev-num" style="color:var(--accent)">'+pct(n.real)+'</span><span class="prev-lbl">Real chance if flagged</span></div>';
+}
+// ══════════════════════════════════
+// ── RENDER: STEP ──
+// ══════════════════════════════════
+function startGame(){
+state.steps = buildSteps();
+state.step = 0;
+state.answers = {};
+state.selectedOpt = null;
+var ctx = CTX[cfg.context];
+el('progWrap').classList.remove('hidden');
+el('mainTitle').textContent = ctx.emoji+' '+ctx.name+' Game';
+renderStep();
+}
+function renderStep(){
+var s = state.steps[state.step];
+var ctx = CTX[cfg.context];
+var pv = Math.round(state.step / TOTAL * 100);
+el('progFill').style.width = pv+'%';
+el('progLbl').textContent = 'Step '+(state.step+1)+' / '+TOTAL;
+state.selectedOpt = null;
+var ansMap = personaAnswers(state.step);
+ctx.personas.forEach(function(p){ p.answer = ansMap[p.bias]; });
+var div = document.createElement('div');
+// scene card
+var sc = document.createElement('div');
+sc.className = 'card';
+sc.innerHTML = '<span class="card-icon">'+s.icon+'</span><div class="card-title">'+s.title+'</div><div class="card-body">'+s.story+'</div><div class="hbox">'+s.highlight+'</div>';
+div.appendChild(sc);
+// students
+var stuSec = document.createElement('div');
+stuSec.className = 'stu-sec';
+var stuTitle = document.createElement('div');
+stuTitle.className = 'stu-title';
+stuTitle.textContent = '🎓 Your classmates are thinking...';
+stuSec.appendChild(stuTitle);
+var stuGrid = document.createElement('div');
+stuGrid.className = 'stu-grid';
+ctx.personas.forEach(function(p, i){
+var card = document.createElement('div');
+card.className = 'stu-card';
+card.id = 'stu-'+i;
+card.innerHTML = '<span class="stu-av">'+p.av+'</span><div class="stu-name">'+p.name+'</div><div class="stu-ans" id="sai-'+i+'">...</div>';
+stuGrid.appendChild(card);
+});
+stuSec.appendChild(stuGrid);
+div.appendChild(stuSec);
+// answer area
+var ansSec = document.createElement('div');
+ansSec.className = 'ans-sec';
+// Question heading
+var qEl = document.createElement('div');
+qEl.className = 'ans-question';
+qEl.textContent = '\u{1F914} ' + s.question;
+ansSec.appendChild(qEl);
+if(s.type === 'mcq'){
+var instrEl = document.createElement('div');
+instrEl.className = 'ans-instruction';
+instrEl.innerHTML = 'Pick the best answer, then click <span>Submit</span>';
+ansSec.appendChild(instrEl);
+var opts = document.createElement('div');
+opts.className = 'opts';
+var badges = ['A','B','C','D'];
+s.options.forEach(function(opt, i){
+var btn = document.createElement('button');
+btn.className = 'opt';
+var badge = document.createElement('span');
+badge.className = 'opt-badge';
+badge.textContent = badges[i] || (i+1);
+var txt = document.createElement('span');
+txt.textContent = opt;
+btn.appendChild(badge);
+btn.appendChild(txt);
+btn.onclick = function(){
+document.querySelectorAll('.opt').forEach(function(b){ b.classList.remove('sel'); });
+btn.classList.add('sel');
+state.selectedOpt = i;
+};
+opts.appendChild(btn);
+});
+ansSec.appendChild(opts);
+var subBtn = document.createElement('button');
+subBtn.className = 'btn btn-p';
+subBtn.textContent = '\u2705 Submit Answer & See Reactions';
+subBtn.onclick = submitMCQ;
+ansSec.appendChild(subBtn);
+var hint = document.createElement('div');
+hint.className = 'sub-hint';
+hint.textContent = 'Select one of the options above before submitting.';
+ansSec.appendChild(hint);
+} else {
+var instrEl2 = document.createElement('div');
+instrEl2.className = 'ans-instruction';
+instrEl2.textContent = 'Type your best guess below — there is no wrong answer here!';
+ansSec.appendChild(instrEl2);
+var openWrap = document.createElement('div');
+openWrap.className = 'open-wrap';
+var openLbl = document.createElement('div');
+openLbl.className = 'open-lbl';
+openLbl.textContent = 'Your answer:';
+var inp = document.createElement('input');
+inp.className = 'open-inp';
+inp.id = 'openInp';
+inp.placeholder = s.placeholder;
+openWrap.appendChild(openLbl);
+openWrap.appendChild(inp);
+ansSec.appendChild(openWrap);
+var subBtn2 = document.createElement('button');
+subBtn2.className = 'btn btn-p';
+subBtn2.style.marginTop = '12px';
+subBtn2.textContent = '\u2705 Submit Answer & See Reactions';
+subBtn2.onclick = submitOpen;
+ansSec.appendChild(subBtn2);
+}
+div.appendChild(ansSec);
+// reactions placeholder
+var rxDiv = document.createElement('div');
+rxDiv.id = 'rxArea';
+div.appendChild(rxDiv);
+// next button (hidden)
+var nextDiv = document.createElement('div');
+nextDiv.id = 'nextDiv';
+nextDiv.className = 'hidden';
+var nextBtn = document.createElement('button');
+nextBtn.className = 'btn btn-p';
+nextBtn.textContent = state.step < TOTAL-1 ? 'Next Question →' : 'See the Big Reveal! 🎉';
+nextBtn.onclick = function(){
+state.step++;
+if(state.step >= TOTAL) renderReveal();
+else renderStep();
+};
+nextDiv.appendChild(nextBtn);
+div.appendChild(nextDiv);
+app().innerHTML = '';
+app().appendChild(div);
+}
+function submitMCQ(){
+if(state.selectedOpt === null){ alert('Pick an answer first! 😊'); return; }
+var s = state.steps[state.step];
+var ok = state.selectedOpt === s.correct;
+state.answers[state.step] = { ok: ok };
+revealStudents(ok, s.options[s.correct]);
+}
+function submitOpen(){
+var v = (el('openInp')||{}).value;
+if(!v || !v.trim()){ alert('Type something first! 😊'); return; }
+state.answers[state.step] = { ok: null };
+revealStudents(null, null);
+}
+function revealStudents(ok, correctAns){
+var ctx = CTX[cfg.context];
+var n = calc();
+ctx.personas.forEach(function(p, i){
+setTimeout(function(){
+var card = el('stu-'+i);
+var ansEl = el('sai-'+i);
+if(card && ansEl){ card.classList.add('done'); ansEl.textContent = p.answer; }
+}, i * 300);
+});
+setTimeout(function(){
+var rx = el('rxArea');
+if(!rx) return;
+var html = '';
+if(ok === true){
+html = '<div class="reactions"><div class="rbub ok">✅ You got it right!</div><div class="rbub">🎉 '+ctx.personas[0].name+' agrees!</div><div class="rbub">🤔 '+ctx.personas[5].name+' is reconsidering...</div></div>';
+} else if(ok === false){
+html = '<div class="reactions"><div class="rbub bad">❌ Correct answer: <strong>'+correctAns+'</strong></div><div class="rbub">😮 '+ctx.personas[3].name+' had it right!</div><div class="rbub">💡 This is the tricky part!</div></div>';
+} else {
+html = '<div class="reactions"><div class="rbub">🤔 '+ctx.personas[2].name+': "I said '+pct(n.real)+'!"</div><div class="rbub">💡 '+ctx.personas[4].name+': "Can\'t be '+cfg.accuracy+'%..."</div><div class="rbub">😮 '+ctx.personas[1].name+': "Mind-blowing!"</div></div>';
+}
+rx.innerHTML = html;
+var nd = el('nextDiv');
+if(nd) nd.classList.remove('hidden');
+}, ctx.personas.length*300 + 400);
+}
+// ══════════════════════════════════
+// ── RENDER: REVEAL ──
+// ══════════════════════════════════
+function renderReveal(){
+el('progFill').style.width = '100%';
+el('progLbl').textContent = 'Reveal! 🎉';
+var n = calc();
+var ctx = CTX[cfg.context];
+var correct = 0;
+Object.values(state.answers).forEach(function(a){ if(a.ok===true) correct++; });
+var gap = cfg.accuracy - n.real;
+var surprise = gap > 40 ? 'Not even close to the stated accuracy! 😱' : gap > 20 ? 'Quite surprising, right? 😮' : 'Still very different from what you\'d expect!';
+var div = document.createElement('div');
+// Reveal card
+var rc = document.createElement('div');
+rc.className = 'rev-card';
+rc.innerHTML =
+'<div class="rev-title">🎉 The Big Reveal!</div>'+
+'<p style="color:var(--muted);font-weight:700;margin-bottom:6px;">If flagged by the AI, the REAL probability is actually…</p>'+
+'<div class="rev-num">'+pct(n.real)+'</div>'+
+'<p style="color:var(--muted);font-weight:600;margin-bottom:20px;">Not '+cfg.accuracy+'%. '+surprise+'</p>'+
+'<div class="rev-exp">'+
+'<strong style="color:var(--accent);">Here\'s the full breakdown:</strong>'+
+'<table class="mtable">'+
+'<tr><th>Group</th><th>Flagged by AI</th><th>Reality</th></tr>'+
+'<tr><td>'+fmt(n.sick)+' actual '+ctx.affected+'</td><td class="ok">'+fmt(n.tp)+' correctly flagged ✅</td><td class="bad">'+fmt(n.fn)+' missed ❌</td></tr>'+
+'<tr><td>'+fmt(n.healthy)+' '+ctx.clean+'</td><td class="bad">'+fmt(n.fp)+' wrongly flagged ❌</td><td class="ok">'+fmt(n.tn)+' cleared ✅</td></tr>'+
+'<tr><td><strong>Total flagged</strong></td><td><strong>'+fmt(n.tot)+' '+ctx.plural+'</strong></td><td></td></tr>'+
+'</table>'+
+'<p>Of the <strong>'+fmt(n.tot)+'</strong> flagged, only <strong>'+fmt(n.tp)+'</strong> are actually '+ctx.affected+'.</p><br>'+
+'<div class="hbox">Real probability = '+fmt(n.tp)+' ÷ '+fmt(n.tot)+' = <strong>'+pct(n.real)+'</strong><br>The AI said '+cfg.accuracy+'%. Bayes says '+pct(n.bay)+'.</div>'+
+'<strong style="color:var(--accent);">Bayes\' Theorem confirms it:</strong>'+
+'<div class="formula">P(Affected | Positive) = P(Positive | Affected) × P(Affected) / P(Positive)\n\n= ('+n.pPS.toFixed(2)+' × '+n.pS.toFixed(4)+') / '+n.pP.toFixed(5)+'\n\n= '+(n.pPS*n.pS).toFixed(5)+' / '+n.pP.toFixed(5)+'\n\n≈ '+pct(n.bay)+'</div>'+
+'<div class="lesson">'+
+'💡 <strong>The Big Lesson — Proportional Reasoning Failure:</strong><br><br>'+
+'Our brains assume: "'+cfg.accuracy+'% accurate → '+cfg.accuracy+'% confident per prediction."<br>'+
+'That\'s <strong>proportional reasoning</strong> — and it\'s completely wrong here.<br><br>'+
+'The hidden term is <strong>P(Affected) = '+cfg.baseRate+'/1,000</strong> — the base rate.<br>'+
+'Because only '+fmt(n.sick)+' of '+fmt(n.N)+' '+ctx.plural+' are actually '+ctx.affected+', '+
+'even a tiny '+(100-cfg.accuracy)+'% error on <strong>'+fmt(n.healthy)+' '+ctx.clean+'</strong> '+
+'creates <strong>'+fmt(n.fp)+' false alarms</strong> drowning out the <strong>'+fmt(n.tp)+' real signals</strong>.<br><br>'+
+'Real reliability = accuracy × base rate — a <em>non-linear</em> relationship that catches even experts off guard.'+
+'</div>'+
+'</div>';
+div.appendChild(rc);
+var spacer = document.createElement('br');
+div.appendChild(spacer);
+// Score card
+var sc = document.createElement('div');
+sc.className = 'card';
+sc.style.textAlign = 'center';
+sc.innerHTML =
+'<div class="card-title">📊 Your Score</div>'+
+'<div class="sum-row">'+
+'<div class="sum-stat"><span class="sum-num ok">'+correct+'</span><span class="sum-lbl">Correct</span></div>'+
+'<div class="sum-stat"><span class="sum-num" style="color:var(--blue)">'+(TOTAL-1)+'</span><span class="sum-lbl">Questions</span></div>'+
+'<div class="sum-stat"><span class="sum-num" style="color:var(--purple)">🧠</span><span class="sum-lbl">Bayes Unlocked</span></div>'+
+'</div>'+
+'<p style="color:var(--muted);font-weight:700;margin-bottom:20px;">'+
+(correct>=3?'🌟 Outstanding! You think like a statistician!':'Great effort! Even experts get this wrong — now you know why!')+
+'</p>';
+var btnRow = document.createElement('div');
+btnRow.className = 'btn-row';
+btnRow.style.justifyContent = 'center';
+btnRow.style.gap = '14px';
+btnRow.style.flexWrap = 'wrap';
+var rb1 = document.createElement('button');
+rb1.className = 'btn btn-p';
+rb1.textContent = '🔄 Play Again';
+rb1.onclick = startGame;
+var rb2 = document.createElement('button');
+rb2.className = 'btn btn-s';
+rb2.textContent = '⚙️ Change Settings';
+rb2.onclick = renderConfig;
+btnRow.appendChild(rb1);
+btnRow.appendChild(rb2);
+sc.appendChild(btnRow);
+div.appendChild(sc);
+app().innerHTML = '';
+app().appendChild(div);
+}
+// ── INIT ──
+renderConfig();
+</script>
+</body>
+</html>
